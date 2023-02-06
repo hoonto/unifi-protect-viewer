@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron')
-
-
+// const { blah } = require('./blah')
+const { ProtectApi } = require('unifi-protect')
 
 // event listeners
 addEventListener('load', (event) => {
@@ -16,7 +16,6 @@ addEventListener( 'keydown', async (event) => {
 		ipcRenderer.send('restart');
 	}
 });
-
 
 
 // electron events
@@ -54,7 +53,8 @@ async function run() {
 
 		clickElement(document.getElementsByTagName('button')[0]);
 
-		await wait(2000);
+
+        await wait(2000);
 	}
 
 	// unifi stuff - fullscreen for liveview
@@ -69,10 +69,95 @@ async function run() {
 		setStyle(document.getElementsByTagName('nav')[0], 'display', 'none');
 		setStyle(document.querySelectorAll("[class^=liveview__ViewportsWrapper]")[0], 'maxWidth', '100vw');
 		setStyle(document.querySelectorAll("[class^=liveview__ViewportsWrapper]")[0], 'maxHeight', '100vh');
+
+        const config = await configLoad();
+        const url = new URL(config.url)
+        const protectApi = new ProtectApi(url.hostname, config.username, config.password)
+        const refresh = await protectApi.refreshDevices()
+        const bootstrap = await protectApi.bootstrap
+        console.log('MLM: bootstrap: ', bootstrap)
+
+        const buttonContainersNodeList = document.querySelectorAll('div[data-viewport] [class^="LiveViewGridSlot__Controls"]')
+        const buttonContainers = [...new Set(buttonContainersNodeList)]
+
+        buttonContainers.forEach((container, index) => {
+            addPrivacyButton(container, protectApi)
+        })
 	}
 }
 
+async function togglePrivacy(e, container, protectApi) {
+    e.stopPropagation()
 
+    const cameras = await protectApi.cameras
+
+    const uriparts = container.baseURI.split('/')
+    console.log('MLM: uriparts: ', uriparts)
+    const containerId = uriparts[uriparts.length - 1]
+    console.log('MLM: containerId: ', containerId)
+    console.log('MLM: cameras: ', cameras)
+    const foundCamera = cameras.find(camera => {
+        camera.id === containerId
+    })
+    console.log('MLM: found!', foundCamera.id)
+
+    if (foundCamera.ledSettings.isEnabled) {
+        await protectApi.updateCamera(foundCamera, {
+            micVolume: 0,
+            recordingSettings: {
+                mode: 'never'
+            },
+            ledSettings: {
+                isEnabled: false
+            },
+            speakerSettings: {
+                isEnabled: false,
+                volume: 0
+            },
+            privacyZones: [{
+                color: "#586CED",
+                id: 1,
+                name: "privacy",
+                points: [[0,0],[1,0],[1,1],[0,1]]
+            }]
+        })
+    } else {
+        await protectApi.updateCamera(foundCamera, {
+            micVolume: 100,
+            recordingSettings: {
+                mode: 'always'
+            },
+            ledSettings: {
+                isEnabled: true
+            },
+            speakerSettings: {
+                isEnabled: true,
+                volume: 100
+            },
+            privacyZones: []
+        })
+    }
+}
+
+function addPrivacyButton(container, protectApi) {
+    const btn = document.createElement('button')
+    btn.type = "button"
+    btn.innerHTML = "Privacy"
+    btn.onclick = (e) => togglePrivacy(e, container, protectApi)
+    btn.style.width="55px"
+    btn.style.height="20px"
+    container.prepend(btn)
+  // var elemm = document.createElement('rvml:image');
+  // elemm.src = 'blah.png';
+  // elemm.className = 'rvml';
+  // elemm.onclick = "alert('blah')";
+  // document.body.appendChild(elemm);
+  // elemm.id = "gogo";
+  // elemm.style.position='absolute';
+  // elemm.style.top=200;
+  // elemm.style.left=300;
+  // elemm.style.rotation=200;
+}
 
 // fnc stuff
 async function wait(amount) {

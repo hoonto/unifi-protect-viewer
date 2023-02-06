@@ -82,7 +82,7 @@ function createWindow () {
     x: store.get('bounds')?.x || undefined,
     y: store.get('bounds')?.y || undefined,
     webPreferences: {
-      nodeIntegration: false,
+      nodeIntegration: true,
       spellcheck: true,
       preload: path.join(__dirname, '/src/js/preload.js'),
       allowDisplayingInsecureContent: true,

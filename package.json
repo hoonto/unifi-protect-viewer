@@ -25,6 +25,8 @@
     "electron-reloader": "1.2.3"
   },
   "dependencies": {
-    "electron-store": "8.1.0"
+    "abort-controller": "^3.0.0",
+    "electron-store": "8.1.0",
+    "unifi-protect": "^3.0.4"
   }
 }
