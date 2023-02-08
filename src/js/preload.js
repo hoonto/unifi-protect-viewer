@@ -4,17 +4,17 @@ const { ProtectApi } = require('unifi-protect')
 
 // event listeners
 addEventListener('load', (event) => {
-	run().then();
+  run().then();
 }, { once: true });
 
 addEventListener( 'keydown', async (event) => {
-	if (event.key === 'F9') {
-		ipcRenderer.send('restart');
-	}
-	if (event.key === 'F10') {
-		ipcRenderer.send('reset');
-		ipcRenderer.send('restart');
-	}
+  if (event.key === 'F9') {
+    ipcRenderer.send('restart');
+  }
+  if (event.key === 'F10') {
+    ipcRenderer.send('reset');
+    ipcRenderer.send('restart');
+  }
 });
 
 
@@ -26,83 +26,72 @@ const configSave = (config) => ipcRenderer.send('configSave', config);
 const configLoad = () => ipcRenderer.invoke('configLoad');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-	reset: () => reset(),
-	restart: () => restart(),
-	configSave: (config) => configSave(config),
+  reset: () => reset(),
+  restart: () => restart(),
+  configSave: (config) => configSave(config),
 
-	configLoad: () => configLoad(),
+  configLoad: () => configLoad(),
 })
 
 
 
 // logic
 async function run() {
-	// config/ start page
-	if (checkUrl('index.html') || checkUrl('config.html'))
-		return;
+  // config/ start page
+  if (checkUrl('index.html') || checkUrl('config.html'))
+    return;
 
-	// unifi stuff
-	await wait(2000);
+  // unifi stuff
+  await wait(2000);
 
-	// unifi stuff - login
-	if (checkUrl('login')) {
-		const config = await configLoad();
+  // unifi stuff - login
+  if (checkUrl('login')) {
+    const config = await configLoad();
 
-		setNativeValue(document.getElementsByName('username')[0], config.username);
-		setNativeValue(document.getElementsByName('password')[0], config.password);
+    setNativeValue(document.getElementsByName('username')[0], config.username);
+    setNativeValue(document.getElementsByName('password')[0], config.password);
 
-		clickElement(document.getElementsByTagName('button')[0]);
+    clickElement(document.getElementsByTagName('button')[0]);
 
 
         await wait(2000);
-	}
+  }
 
-	// unifi stuff - fullscreen for liveview
-	if (checkUrl('protect/liveview')) {
-		// currently not needed
-		if (elementExists(document.getElementsByClassName('ReactModalPortal'), 0))
-			clickElement(document.getElementsByClassName('ReactModalPortal')[0]?.getElementsByTagName('svg')[0]);
+  // unifi stuff - fullscreen for liveview
+  if (checkUrl('protect/liveview')) {
+    // currently not needed
+    if (elementExists(document.getElementsByClassName('ReactModalPortal'), 0))
+      clickElement(document.getElementsByClassName('ReactModalPortal')[0]?.getElementsByTagName('svg')[0]);
 
-		await wait(200);
+    await wait(200);
 
-		setStyle(document.getElementsByTagName('header')[0], 'display', 'none');
-		setStyle(document.getElementsByTagName('nav')[0], 'display', 'none');
-		setStyle(document.querySelectorAll("[class^=liveview__ViewportsWrapper]")[0], 'maxWidth', '100vw');
-		setStyle(document.querySelectorAll("[class^=liveview__ViewportsWrapper]")[0], 'maxHeight', '100vh');
+    setStyle(document.getElementsByTagName('header')[0], 'display', 'none');
+    setStyle(document.getElementsByTagName('nav')[0], 'display', 'none');
+    setStyle(document.querySelectorAll("[class^=liveview__ViewportsWrapper]")[0], 'maxWidth', '100vw');
+    setStyle(document.querySelectorAll("[class^=liveview__ViewportsWrapper]")[0], 'maxHeight', '100vh');
 
         const config = await configLoad();
         const url = new URL(config.url)
         const protectApi = new ProtectApi(url.hostname, config.username, config.password)
         const refresh = await protectApi.refreshDevices()
         const bootstrap = await protectApi.bootstrap
+        const cameras = await protectApi.cameras
         console.log('MLM: bootstrap: ', bootstrap)
+        console.log('MLM: cameras: ', cameras)
 
-        const buttonContainersNodeList = document.querySelectorAll('div[data-viewport] [class^="LiveViewGridSlot__Controls"]')
-        const buttonContainers = [...new Set(buttonContainersNodeList)]
+        const container = document.querySelector('[class^="App__CloudFrame"]')
 
-        buttonContainers.forEach((container, index) => {
-            addPrivacyButton(container, protectApi)
+        cameras.forEach(camera => {
+            addPrivacyButton(container, camera, protectApi) {
         })
-	}
+  }
 }
 
-async function togglePrivacy(e, container, protectApi) {
+async function togglePrivacy(e, btn, camera, protectApi) {
     e.stopPropagation()
 
-    const cameras = await protectApi.cameras
-
-    const uriparts = container.baseURI.split('/')
-    console.log('MLM: uriparts: ', uriparts)
-    const containerId = uriparts[uriparts.length - 1]
-    console.log('MLM: containerId: ', containerId)
-    console.log('MLM: cameras: ', cameras)
-    const foundCamera = cameras.find(camera => {
-        camera.id === containerId
-    })
-    console.log('MLM: found!', foundCamera.id)
-
-    if (foundCamera.ledSettings.isEnabled) {
-        await protectApi.updateCamera(foundCamera, {
+    if (camera.ledSettings.isEnabled) {
+        await protectApi.updateCamera(camera, {
             micVolume: 0,
             recordingSettings: {
                 mode: 'never'
@@ -122,7 +111,7 @@ async function togglePrivacy(e, container, protectApi) {
             }]
         })
     } else {
-        await protectApi.updateCamera(foundCamera, {
+        await protectApi.updateCamera(camera, {
             micVolume: 100,
             recordingSettings: {
                 mode: 'always'
@@ -137,83 +126,76 @@ async function togglePrivacy(e, container, protectApi) {
             privacyZones: []
         })
     }
+    btn.innerHTML = `Turn ${camera.name} ${camera.ledSettings.isEnabled ? 'off' : 'on'}`
+    // Make the button blue for on and light grey for off
 }
 
-function addPrivacyButton(container, protectApi) {
+function addPrivacyButton(container, camera, protectApi) {
     const btn = document.createElement('button')
-    btn.type = "button"
-    btn.innerHTML = "Privacy"
-    btn.onclick = (e) => togglePrivacy(e, container, protectApi)
-    btn.style.width="55px"
-    btn.style.height="20px"
+    btn.type = 'button'
+    btn.innerHTML = `Toggle ${camera.name} Privacy ${camera.ledSettings.isEnabled ? 'Off' : 'On'}`
+    btn.onclick = (e) => togglePrivacy(e, btn, camera, protectApi)
+    // You may have to absolutely position these in a grid or something
+    btn.style.width='55px'
+    btn.style.height='20px'
     container.prepend(btn)
-  // var elemm = document.createElement('rvml:image');
-  // elemm.src = 'blah.png';
-  // elemm.className = 'rvml';
-  // elemm.onclick = "alert('blah')";
-  // document.body.appendChild(elemm);
-  // elemm.id = "gogo";
-  // elemm.style.position='absolute';
-  // elemm.style.top=200;
-  // elemm.style.left=300;
-  // elemm.style.rotation=200;
 }
 
 // fnc stuff
 async function wait(amount) {
-	return new Promise((resolve, reject) => {
-		setTimeout(() => {
-			resolve();
-		}, amount);
-	});
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve();
+    }, amount);
+  });
 }
 
 function setNativeValue(element, value) {
-	if (!element)
-		return;
+  if (!element)
+    return;
 
-	const lastValue = element.value;
-	element.value = value;
-	const event = new Event("input", {target: element, bubbles: true});
+  const lastValue = element.value;
+  element.value = value;
+  const event = new Event("input", {target: element, bubbles: true});
 
-	event.simulated = true;
+  event.simulated = true;
 
-	// React 16
-	const tracker = element._valueTracker;
-	if (tracker) {
-		tracker.setValue(lastValue);
-	}
-	element.dispatchEvent(event);
+  // React 16
+  const tracker = element._valueTracker;
+  if (tracker) {
+    tracker.setValue(lastValue);
+  }
+  element.dispatchEvent(event);
 }
 
 function clickElement(element) {
-	if (!element)
-		return;
+  if (!element)
+    return;
 
-	if (element.click) {
-		element.click();
-	} else {
-		const event = new MouseEvent('click', {
-			view: window,
-			bubbles: true,
-			cancelable: true
-		});
+  if (element.click) {
+    element.click();
+  } else {
+    const event = new MouseEvent('click', {
+      view: window,
+      bubbles: true,
+      cancelable: true
+    });
 
-		element.dispatchEvent(event);
-	}
+    element.dispatchEvent(event);
+  }
 }
 
 function setStyle(element, style, value) {
-	if (!element)
-		return;
+  if (!element)
+    return;
 
-	element.style[style] = value;
+  element.style[style] = value;
 }
 
 function elementExists(elements, index = 0) {
-	return elements.length > 0 && elements[index];
+  return elements.length > 0 && elements[index];
 }
 
 function checkUrl(urlPart) {
-	return document.URL.includes(urlPart);
+  return document.URL.includes(urlPart);
 }

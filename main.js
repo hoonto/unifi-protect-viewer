@@ -100,7 +100,7 @@ function createWindow () {
   });
 
   // set the main window title
-  mainWindow.setTitle('UnifiProtect Viewer');
+  mainWindow.setTitle('HNS Camera Control');
 
   // disable automatic app title updates
   mainWindow.on('page-title-updated', function(e) {
