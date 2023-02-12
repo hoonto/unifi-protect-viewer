@@ -54,14 +54,14 @@ async function run() {
     clickElement(document.getElementsByTagName('button')[0]);
 
 
-        await wait(2000);
+    await wait(2000);
   }
 
   // unifi stuff - fullscreen for liveview
   if (checkUrl('protect/liveview')) {
     // currently not needed
     if (elementExists(document.getElementsByClassName('ReactModalPortal'), 0))
-      clickElement(document.getElementsByClassName('ReactModalPortal')[0]?.getElementsByTagName('svg')[0]);
+        clickElement(document.getElementsByClassName('ReactModalPortal')[0]?.getElementsByTagName('svg')[0]);
 
     await wait(200);
 
@@ -70,28 +70,28 @@ async function run() {
     setStyle(document.querySelectorAll("[class^=liveview__ViewportsWrapper]")[0], 'maxWidth', '100vw');
     setStyle(document.querySelectorAll("[class^=liveview__ViewportsWrapper]")[0], 'maxHeight', '100vh');
 
-        const config = await configLoad();
-        const url = new URL(config.url)
-        const protectApi = new ProtectApi(url.hostname, config.username, config.password)
-        const refresh = await protectApi.refreshDevices()
-        const bootstrap = await protectApi.bootstrap
-        const cameras = await protectApi.cameras
-        console.log('MLM: bootstrap: ', bootstrap)
-        console.log('MLM: cameras: ', cameras)
+    const config = await configLoad();
+    const url = new URL(config.url)
+    const protectApi = new ProtectApi(url.hostname, config.username, config.password)
+    const refresh = await protectApi.refreshDevices()
+    const bootstrap = await protectApi.bootstrap
+    let cameras = await protectApi.cameras
+    console.log('MLM: bootstrap: ', bootstrap)
+    console.log('MLM: cameras: ', cameras)
 
-        const container = document.querySelector('[class^="App__CloudFrame"]')
+    const container = document.querySelector('[class^="LiveviewControls__ControlsBox"]')
 
-        cameras.forEach(camera => {
-            addPrivacyButton(container, camera, protectApi) {
-        })
+    cameras.forEach((camera, index) => {
+        addPrivacyButton(container, cameras, index, protectApi)
+    })
   }
 }
 
-async function togglePrivacy(e, btn, camera, protectApi) {
+async function togglePrivacy(e, btn, cameras, index, protectApi) {
     e.stopPropagation()
 
-    if (camera.ledSettings.isEnabled) {
-        await protectApi.updateCamera(camera, {
+    if (cameras[index].ledSettings.isEnabled) {
+        cameras[index] = await protectApi.updateCamera(cameras[index], {
             micVolume: 0,
             recordingSettings: {
                 mode: 'never'
@@ -111,7 +111,7 @@ async function togglePrivacy(e, btn, camera, protectApi) {
             }]
         })
     } else {
-        await protectApi.updateCamera(camera, {
+        cameras[index] = await protectApi.updateCamera(cameras[index], {
             micVolume: 100,
             recordingSettings: {
                 mode: 'always'
@@ -126,19 +126,19 @@ async function togglePrivacy(e, btn, camera, protectApi) {
             privacyZones: []
         })
     }
-    btn.innerHTML = `Turn ${camera.name} ${camera.ledSettings.isEnabled ? 'off' : 'on'}`
-    // Make the button blue for on and light grey for off
+    btn.innerHTML = `${cameras[index].name} ${cameras[index].ledSettings.isEnabled ? 'off' : 'on'}`
 }
 
-function addPrivacyButton(container, camera, protectApi) {
+function addPrivacyButton(container, cameras, index, protectApi) {
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.innerHTML = `Toggle ${camera.name} Privacy ${camera.ledSettings.isEnabled ? 'Off' : 'On'}`
-    btn.onclick = (e) => togglePrivacy(e, btn, camera, protectApi)
+    btn.innerHTML = `${cameras[index].name} ${cameras[index].ledSettings.isEnabled ? 'off' : 'on'}`
+    btn.onclick = (e) => togglePrivacy(e, btn, cameras, index, protectApi)
     // You may have to absolutely position these in a grid or something
-    btn.style.width='55px'
-    btn.style.height='20px'
-    container.prepend(btn)
+    btn.style.width = '55px'
+    btn.style.height = '55px'
+    btn.style.overflow = 'hidden'
+    container.append(btn)
 }
 
 // fnc stuff
