@@ -135,8 +135,8 @@ function addPrivacyButton(container, cameras, index, protectApi) {
     btn.innerHTML = `${cameras[index].name} ${cameras[index].ledSettings.isEnabled ? 'off' : 'on'}`
     btn.onclick = (e) => togglePrivacy(e, btn, cameras, index, protectApi)
     // You may have to absolutely position these in a grid or something
-    btn.style.width = '55px'
-    btn.style.height = '55px'
+    btn.style.width = '70px'
+    btn.style.height = '40px'
     btn.style.overflow = 'hidden'
     container.append(btn)
 }
